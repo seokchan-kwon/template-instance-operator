@@ -149,7 +149,7 @@ type TemplateInstanceStatus struct {
 
 // TemplateInstance is the Schema for the Templateinstances API
 // +kubebuilder:subresource:status
-// +kubebuilder:resource:path=Templateinstances,scope=Namespaced
+// +kubebuilder:resource:path=templateinstances,scope=Namespaced
 type TemplateInstance struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
