@@ -84,7 +84,7 @@ type TemplateSpec struct {
 	metav1.ObjectMeta `json:"type,omitempty"`
 }
 
-// +kubebuilder:resource:shortName="Templatei"
+// +kubebuilder:resource:shortName="ti"
 // TemplateInstanceSpec defines the desired state of TemplateInstance
 type TemplateInstanceSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
