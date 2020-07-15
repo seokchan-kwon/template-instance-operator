@@ -2,22 +2,27 @@ package templateinstance
 
 import (
 	"context"
+	"fmt"
+	"encoding/json"
 
 	tmaxv1 "template-instance-operator/pkg/apis/tmax/v1"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	//metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/types"
+	//"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	//"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
+
+	crdapi "github.com/kubernetes-client/go/kubernetes/client"   
+	"github.com/kubernetes-client/go/kubernetes/config"
 )
 
 var log = logf.Log.WithName("controller_templateinstance")
@@ -76,6 +81,29 @@ type ReconcileTemplateInstance struct {
 	scheme *runtime.Scheme
 }
 
+// Template CR Type
+type TemplateCR struct {
+	spec TemplateCRSpec
+}
+
+// Detail Template CR Spec
+type TemplateCRSpec struct {
+	kind string
+	labels map[string]interface{}
+	operatorStartTime string
+	shortDescription string
+	longDescription string
+	provider string
+	imageUrl string
+	recommend bool
+	tags []string
+	objectKinds []string
+	metadata map[string]interface{}
+	plans []interface{}
+	objects []interface{}
+	parameters []interface{}
+}
+
 // Reconcile reads that state of the cluster for a TemplateInstance object and makes changes based on the state read
 // and what is in the TemplateInstance.Spec
 // TODO(user): Modify this Reconcile function to implement your Controller logic.  This example creates
@@ -101,54 +129,70 @@ func (r *ReconcileTemplateInstance) Reconcile(request reconcile.Request) (reconc
 		return reconcile.Result{}, err
 	}
 
-	// Define a new Pod object
-	pod := newPodForCR(instance)
+	// Template instance
+	
+	/*
+		templateCR := 영인이 함수
+	*/
 
-	// Set TemplateInstance instance as the owner and controller
-	if err := controllerutil.SetControllerReference(instance, pod, r.scheme); err != nil {
-		return reconcile.Result{}, err
+	// map[string]interface{} to []byte
+	convert, err := json.Marshal(templateCR)
+	if err != nil {
+		panic("===[ Marshal Error ] : " + err)
 	}
 
-	// Check if this Pod already exists
-	found := &corev1.Pod{}
-	err = r.client.Get(context.TODO(), types.NamespacedName{Name: pod.Name, Namespace: pod.Namespace}, found)
-	if err != nil && errors.IsNotFound(err) {
-		reqLogger.Info("Creating a new Pod", "Pod.Namespace", pod.Namespace, "Pod.Name", pod.Name)
-		err = r.client.Create(context.TODO(), pod)
+	// []byte to interface{}
+	var tcr TemplateCR
+	err = json.Unmarshal(convert, &tcr)
+	if err != nil {
+		panic("===[ Unmarshal Error ] : " + err)
+	}
+
+	// deploy template cr's object 
+	for _, object := range tcr.spec.objects {
+		err = deploy(object)
 		if err != nil {
-			return reconcile.Result{}, err
+			panic("===[ Deploy Error ] : " + err)
 		}
-
-		// Pod created successfully - don't requeue
-		return reconcile.Result{}, nil
-	} else if err != nil {
-		return reconcile.Result{}, err
 	}
 
-	// Pod already exists - don't requeue
-	reqLogger.Info("Skip reconcile: Pod already exists", "Pod.Namespace", found.Namespace, "Pod.Name", found.Name)
 	return reconcile.Result{}, nil
 }
 
-// newPodForCR returns a busybox pod with the same name/namespace as the cr
-func newPodForCR(cr *tmaxv1.TemplateInstance) *corev1.Pod {
-	labels := map[string]string{
-		"app": cr.Name,
+// Error Wrapping
+type DeployError struct {
+	kind string
+}
+
+func (de *DeployError) Error() string {
+	return fmt.Sprint("It is not a type of kind %v", de.kind)
+}
+
+
+func deploy(object interface{}) error {
+	switch object.kind {
+	case Service:
+		service(object)
+		return nil
+	case Deployment:
+		deployment(object)
+		return nil
+	case Pod:
+		pod(object)
+		return nil
+	default:
+		return &DeployError{object.kind}
 	}
-	return &corev1.Pod{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      cr.Name + "-pod",
-			Namespace: cr.Namespace,
-			Labels:    labels,
-		},
-		Spec: corev1.PodSpec{
-			Containers: []corev1.Container{
-				{
-					Name:    "busybox",
-					Image:   "busybox",
-					Command: []string{"sleep", "3600"},
-				},
-			},
-		},
-	}
+}
+
+func (r *ReconcileTemplateInstance) service(object interface{}) error {
+
+}
+
+func (r *ReconcileTemplateInstance) deployment(object interface{}) error {
+
+}
+
+func (r *ReconcileTemplateInstance) pod(object interface{}) error {
+
 }
