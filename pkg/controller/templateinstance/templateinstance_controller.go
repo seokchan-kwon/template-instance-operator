@@ -148,6 +148,11 @@ func (r *ReconcileTemplateInstance) Reconcile(request reconcile.Request) (reconc
 		panic("===[ Unmarshal Error ] : " + err)
 	}
 
+	// add parameters
+	for _, parameter := range instance.Spec.Parameters {
+		//
+	}
+
 	// deploy template cr's object 
 	for _, object := range tcr.spec.objects {
 		err = deploy(object)
@@ -172,27 +177,46 @@ func (de *DeployError) Error() string {
 func deploy(object interface{}) error {
 	switch object.kind {
 	case Service:
-		service(object)
+		deployInstance(object, "group", "version", "services")
 		return nil
 	case Deployment:
-		deployment(object)
+		deployInstance(object, "group", "version", "deployments")
 		return nil
 	case Pod:
-		pod(object)
+		deployInstance(object, "group", "version", "deployments")
 		return nil
 	default:
 		return &DeployError{object.kind}
 	}
 }
 
-func (r *ReconcileTemplateInstance) service(object interface{}) error {
+func (r *ReconcileTemplateInstance) deployInstance(object interface{}, group string, version string, plural string) error {
+	var namespace string
+	if len(object.metadata.namespace) != 0 {
+		namespace = object.metadata.namespace
+	} else {
+		namespace = "default"
+	}
 
-}
+	conf, err := config.LoadKubeConfig()
+	if err != nil {
+		return err
+	}
 
-func (r *ReconcileTemplateInstance) deployment(object interface{}) error {
+	clientSet := crdapi.NewAPIClient(conf)
+	response, _, err := clientSet.CustomObjectApi.CreateNamespacedCustomObject(context.Background(), 
+																				group, 
+																				version,
+																				templateNameSpace,
+																				plural, 
+																				object, 
+																				nil)
 
-}
+	if err != nil && response == nil {
+		if errors.IsNotFound(err) {
+			return err
+		}
+	}
 
-func (r *ReconcileTemplateInstance) pod(object interface{}) error {
-
+	return nil
 }
