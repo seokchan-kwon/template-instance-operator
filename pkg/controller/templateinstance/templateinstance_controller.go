@@ -204,13 +204,7 @@ func (r *ReconcileTemplateInstance) deployInstance(object interface{}, group str
 	}
 
 	clientSet := crdapi.NewAPIClient(conf)
-	response, _, err := clientSet.CustomObjectApi.CreateNamespacedCustomObject(context.Background(), 
-																				group, 
-																				version,
-																				templateNameSpace,
-																				plural, 
-																				object, 
-																				nil)
+	response, _, err := clientSet.CustomObjectApi.CreateNamespacedCustomObject(context.Background(), group, version, namespace, plural, object, nil)
 
 	if err != nil && response == nil {
 		if errors.IsNotFound(err) {
