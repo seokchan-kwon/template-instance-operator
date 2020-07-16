@@ -23,6 +23,8 @@ import (
 
 	crdapi "github.com/kubernetes-client/go/kubernetes/client"   
 	"github.com/kubernetes-client/go/kubernetes/config"
+
+	"github.com/tidwall/gjson"
 )
 
 var log = logf.Log.WithName("controller_templateinstance")
@@ -89,7 +91,7 @@ type TemplateCR struct {
 // Detail Template CR Spec
 type TemplateCRSpec struct {
 	kind string
-	labels map[string]interface{}
+	labels []byte
 	operatorStartTime string
 	shortDescription string
 	longDescription string
@@ -98,10 +100,15 @@ type TemplateCRSpec struct {
 	recommend bool
 	tags []string
 	objectKinds []string
-	metadata map[string]interface{}
-	plans []interface{}
-	objects []interface{}
-	parameters []interface{}
+	metadata []byte
+	plans []byte
+	objects []ObjectSpec
+	parameters []byte
+}
+
+type ObjectSpec struct {
+	kind string
+	fields []byte
 }
 
 // Reconcile reads that state of the cluster for a TemplateInstance object and makes changes based on the state read
@@ -130,34 +137,49 @@ func (r *ReconcileTemplateInstance) Reconcile(request reconcile.Request) (reconc
 	}
 
 	// Template instance
+
+	templateNameSpace := request.Namespace
+	templateName := instance.Spec.Template.Metadata.Name
+
+	c, err := config.LoadKubeConfig()
+	if err != nil {
+		return reconcile.Result{},err
+	}
+	clientset := crdapi.NewAPIClient(c)
 	
-	/*
-		templateCR := 영인이 함수
-	*/
+	// get template cr's info
+	templateCR,_,err := clientset.CustomObjectsApi.GetNamespacedCustomObject(context.Background(),"tmax.io","v1",templateNameSpace,"templates",templateName);
+	if err != nil {
+		panic("===[ Template Error ] : " + err.Error())
+	}
 
 	// map[string]interface{} to []byte
 	convert, err := json.Marshal(templateCR)
 	if err != nil {
-		panic("===[ Marshal Error ] : " + err)
+		panic("===[ Marshal Error ] : " + err.Error())
 	}
+
+	// test gjson
+	value := gjson.Get(string(convert), "spec.objects")
+	reqLogger.Info("************ spec.objects : " + value.String())
 
 	// []byte to interface{}
 	var tcr TemplateCR
 	err = json.Unmarshal(convert, &tcr)
 	if err != nil {
-		panic("===[ Unmarshal Error ] : " + err)
+		panic("===[ Unmarshal Error ] : " + err.Error())
 	}
 
-	// add parameters
-	for _, parameter := range instance.Spec.Parameters {
-		//
-	}
+	// push instance parameters into template cr's object
+	// for _, parameter := range instance.Spec.Template.Parameters {
+	// 	//
+	// }
 
 	// deploy template cr's object 
 	for _, object := range tcr.spec.objects {
 		err = deploy(object)
 		if err != nil {
-			panic("===[ Deploy Error ] : " + err)
+			panic("===[ Deploy Error ] : " + err.Error())
 		}
 	}
 
@@ -173,27 +195,47 @@ func (de *DeployError) Error() string {
 	return fmt.Sprint("It is not a type of kind %v", de.kind)
 }
 
-
+// classify object
 func deploy(object interface{}) error {
-	switch object.kind {
-	case Service:
-		deployInstance(object, "group", "version", "services")
+	// TODO : 모든 kind를 일반화 해서 apply 하는 방법...?
+
+	objectJson, err := json.Marshal(object)
+	if err != nil {
+		panic("===[ Marshal Error ] : " + err.Error())
+	}
+
+	kind := gjson.Get(string(objectJson), "kind")
+
+	switch kind.String() {
+	case "Service":
+		deployInstance(object, "services")
 		return nil
-	case Deployment:
-		deployInstance(object, "group", "version", "deployments")
+	case "Deployment":
+		deployInstance(object, "deployments")
 		return nil
-	case Pod:
-		deployInstance(object, "group", "version", "deployments")
+	case "Pod":
+		deployInstance(object, "pods")
 		return nil
 	default:
-		return &DeployError{object.kind}
+		return &DeployError{kind.String()}
 	}
+	return nil
 }
 
-func (r *ReconcileTemplateInstance) deployInstance(object interface{}, group string, version string, plural string) error {
+// apply instance
+func deployInstance(object interface{}, plural string) error {
+	objectJson, err := json.Marshal(object)
+	if err != nil {
+		panic("===[ Marshal Error ] : " + err.Error())
+	}
+
+	group := gjson.Get(string(objectJson), "fields.apiVersion") // ?
+	version := gjson.Get(string(objectJson), "fields.apiVersion")
+	namespaceValue := gjson.Get(string(objectJson), "fields.metadata.namespace")
+
 	var namespace string
-	if len(object.metadata.namespace) != 0 {
-		namespace = object.metadata.namespace
+	if len(namespaceValue.String()) != 0 {
+		namespace = namespaceValue.String()
 	} else {
 		namespace = "default"
 	}
@@ -204,7 +246,7 @@ func (r *ReconcileTemplateInstance) deployInstance(object interface{}, group str
 	}
 
 	clientSet := crdapi.NewAPIClient(conf)
-	response, _, err := clientSet.CustomObjectApi.CreateNamespacedCustomObject(context.Background(), group, version, namespace, plural, object, nil)
+	response, _, err := clientSet.CustomObjectsApi.CreateNamespacedCustomObject(context.Background(), group.String(), version.String(), namespace, plural, object, nil)
 
 	if err != nil && response == nil {
 		if errors.IsNotFound(err) {
