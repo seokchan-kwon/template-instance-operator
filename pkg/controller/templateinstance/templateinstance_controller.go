@@ -9,12 +9,9 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
-	//metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	//"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
-	//"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
@@ -28,6 +25,35 @@ import (
 )
 
 var log = logf.Log.WithName("controller_templateinstance")
+
+// Template CR Type
+type TemplateCR struct {
+	spec TemplateCRSpec
+}
+
+// Detail Template CR Spec
+type TemplateCRSpec struct {
+	kind string
+	labels []byte
+	operatorStartTime string
+	shortDescription string
+	longDescription string
+	provider string
+	imageUrl string
+	recommend bool
+	tags []string
+	objectKinds []string
+	metadata []byte
+	plans []byte
+	objects []ObjectSpec
+	parameters []byte
+}
+
+// Detail Object Spec
+type ObjectSpec struct {
+	kind string
+	fields []byte
+}
 
 /**
 * USER ACTION REQUIRED: This is a scaffold file intended for the user to modify with their own Controller
@@ -83,34 +109,6 @@ type ReconcileTemplateInstance struct {
 	scheme *runtime.Scheme
 }
 
-// Template CR Type
-type TemplateCR struct {
-	spec TemplateCRSpec
-}
-
-// Detail Template CR Spec
-type TemplateCRSpec struct {
-	kind string
-	labels []byte
-	operatorStartTime string
-	shortDescription string
-	longDescription string
-	provider string
-	imageUrl string
-	recommend bool
-	tags []string
-	objectKinds []string
-	metadata []byte
-	plans []byte
-	objects []ObjectSpec
-	parameters []byte
-}
-
-type ObjectSpec struct {
-	kind string
-	fields []byte
-}
-
 // Reconcile reads that state of the cluster for a TemplateInstance object and makes changes based on the state read
 // and what is in the TemplateInstance.Spec
 // TODO(user): Modify this Reconcile function to implement your Controller logic.  This example creates
@@ -158,10 +156,6 @@ func (r *ReconcileTemplateInstance) Reconcile(request reconcile.Request) (reconc
 	if err != nil {
 		panic("===[ Marshal Error ] : " + err.Error())
 	}
-
-	// test gjson
-	value := gjson.Get(string(convert), "spec.objects")
-	reqLogger.Info("************ spec.objects : " + value.String())
 
 	// []byte to interface{}
 	var tcr TemplateCR
