@@ -63,6 +63,8 @@ type ParameterSpec struct {
 
 	Required bool `json:"required,omitempty"`
 
+	Value string `json:"value"`
+
 	metav1.ObjectMeta `json:"type,omitempty"`
 }
 

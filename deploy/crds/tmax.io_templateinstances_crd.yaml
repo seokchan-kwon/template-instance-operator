@@ -102,8 +102,11 @@ spec:
                         type: boolean
                       type:
                         type: object
+                      value:
+                        type: string
                     required:
                     - name
+                    - value
                     type: object
                   type: array
                 type:

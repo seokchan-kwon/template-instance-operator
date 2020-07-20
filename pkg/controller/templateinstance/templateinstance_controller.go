@@ -129,10 +129,12 @@ func (r *ReconcileTemplateInstance) Reconcile(request reconcile.Request) (reconc
 		panic("===[ Marshal Error ] : " + err.Error())
 	}
 
-	// TODO : add parameters in template cr 
-	
+	crStr := string(convert)
+	// add parameters
+	addParameters(instance, &crStr)
+
 	// deploy instance
-	obs := gjson.Get(string(convert), "spec.objects")
+	obs := gjson.Get(crStr, "spec.objects.#.fields")
 	for _, field := range obs.Array() {
 		err = deploy(field.Value())
 		if err != nil {
@@ -204,4 +206,11 @@ func deployInstance(object interface{}, plural string) error {
 	}
 
 	return nil
+}
+
+// add parameters in template cr
+func addParameters(ti *tmaxv1.TemplateInstance, cr *string) {
+	for _, param := range ti.Spec.Template.Parameters {
+		*cr = strings.Replace(*cr, "${" + param.Name + "}", param.Value, -1)
+	}
 }
