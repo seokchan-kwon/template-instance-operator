@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"encoding/json"
+	"strings"
 
 	tmaxv1 "template-instance-operator/pkg/apis/tmax/v1"
 
@@ -25,35 +26,6 @@ import (
 )
 
 var log = logf.Log.WithName("controller_templateinstance")
-
-// Template CR Type
-type TemplateCR struct {
-	spec TemplateCRSpec
-}
-
-// Detail Template CR Spec
-type TemplateCRSpec struct {
-	kind string
-	labels []byte
-	operatorStartTime string
-	shortDescription string
-	longDescription string
-	provider string
-	imageUrl string
-	recommend bool
-	tags []string
-	objectKinds []string
-	metadata []byte
-	plans []byte
-	objects []ObjectSpec
-	parameters []byte
-}
-
-// Detail Object Spec
-type ObjectSpec struct {
-	kind string
-	fields []byte
-}
 
 /**
 * USER ACTION REQUIRED: This is a scaffold file intended for the user to modify with their own Controller
@@ -157,21 +129,12 @@ func (r *ReconcileTemplateInstance) Reconcile(request reconcile.Request) (reconc
 		panic("===[ Marshal Error ] : " + err.Error())
 	}
 
-	// []byte to interface{}
-	var tcr TemplateCR
-	err = json.Unmarshal(convert, &tcr)
-	if err != nil {
-		panic("===[ Unmarshal Error ] : " + err.Error())
-	}
-
-	// push instance parameters into template cr's object
-	// for _, parameter := range instance.Spec.Template.Parameters {
-	// 	//
-	// }
-
-	// deploy template cr's object 
-	for _, object := range tcr.spec.objects {
-		err = deploy(object)
+	// TODO : add parameters in template cr 
+	
+	// deploy instance
+	obs := gjson.Get(string(convert), "spec.objects")
+	for _, field := range obs.Array() {
+		err = deploy(field.Value())
 		if err != nil {
 			panic("===[ Deploy Error ] : " + err.Error())
 		}
@@ -191,38 +154,30 @@ func (de *DeployError) Error() string {
 
 // classify object
 func deploy(object interface{}) error {
-	// TODO : 모든 kind를 일반화 해서 apply 하는 방법...?
-
 	objectJson, err := json.Marshal(object)
 	if err != nil {
 		panic("===[ Marshal Error ] : " + err.Error())
 	}
 
 	kind := gjson.Get(string(objectJson), "kind")
+	plural := strings.ToLower(kind.String()) + "s"
 
-	switch kind.String() {
-	case "Service":
-		deployInstance(object, "services")
-		return nil
-	case "Deployment":
-		deployInstance(object, "deployments")
-		return nil
-	case "Pod":
-		deployInstance(object, "pods")
-		return nil
-	default:
-		return &DeployError{kind.String()}
+	if err := deployInstance(object, plural); err != nil {
+		return &DeployError{plural}
 	}
+
 	return nil
 }
 
 // apply instance
 func deployInstance(object interface{}, plural string) error {
+	// TODO : plural check (ex, k8s에 없는 kind가 들어올 때 예외처리..)?
 	objectJson, err := json.Marshal(object)
 	if err != nil {
 		panic("===[ Marshal Error ] : " + err.Error())
 	}
 
+	// TODO : group, version check
 	group := gjson.Get(string(objectJson), "fields.apiVersion") // ?
 	version := gjson.Get(string(objectJson), "fields.apiVersion")
 	namespaceValue := gjson.Get(string(objectJson), "fields.metadata.namespace")
