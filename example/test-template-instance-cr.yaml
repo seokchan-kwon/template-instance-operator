@@ -1,0 +1,11 @@
+apiVersion: tmax.io/v1
+kind: TemplateInstance
+metadata:
+  name: test-instance
+spec:
+  template:
+    metadata:
+      name: test-app
+    parameters:
+    - name: something
+      value: value

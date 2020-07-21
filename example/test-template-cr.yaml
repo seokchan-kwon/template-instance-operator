@@ -1,0 +1,46 @@
+apiVersion: tmax.io/v1
+kind: Template
+metadata:
+  name: test
+  namespace: default
+spec:
+  provider: provider
+  urlDescription: urlDescription
+  plans:
+  - fields:
+      description: plan description
+      name: plan name
+  objects:
+  - fields:
+      apiVersion: v1
+      kind: Service
+      metadata:
+        name: test-app-svc
+      spec:
+        selector:
+          app: test-app
+        ports:
+        - protocol: TCP
+          port: 80
+          targetPort: 9376
+  - fields:
+       apiVersion: apps/v1
+       kind: Deployment
+       metadata:
+         name: test-app
+       spec:
+         selector:
+           matchLabels:
+             app: 
+         replicas: 1
+         template:
+           metadata:
+             labels:
+               app: test-app
+           spec:
+             containers:
+             - name: test-container
+               image: nginx:1.14.2
+               ports:
+               - containerPort: 80
+
