@@ -179,9 +179,22 @@ func deployInstance(object interface{}, plural string) error {
 		panic("===[ Marshal Error ] : " + err.Error())
 	}
 
-	// TODO : group, version check
-	group := gjson.Get(string(objectJson), "fields.apiVersion") // ?
-	version := gjson.Get(string(objectJson), "fields.apiVersion")
+	var group string
+	var version string
+	apiVersion := gjson.Get(string(objectJson), "apiVersion")
+	if strings.Contains(apiVersion.String(), "/") {
+		slice := strings.Split(apiVersion.String(), "/")
+		if len(slice) != 2 {
+			return nil
+		}
+
+		group = slice[0]
+		version = slice[1]
+	} else {
+		group = ""
+		version = apiVersion.String()
+	}
+
 	namespaceValue := gjson.Get(string(objectJson), "fields.metadata.namespace")
 
 	var namespace string
@@ -197,7 +210,7 @@ func deployInstance(object interface{}, plural string) error {
 	}
 
 	clientSet := crdapi.NewAPIClient(conf)
-	response, _, err := clientSet.CustomObjectsApi.CreateNamespacedCustomObject(context.Background(), group.String(), version.String(), namespace, plural, object, nil)
+	response, _, err := clientSet.CustomObjectsApi.CreateNamespacedCustomObject(context.Background(), group, version, namespace, plural, object, nil)
 
 	if err != nil && response == nil {
 		if errors.IsNotFound(err) {
