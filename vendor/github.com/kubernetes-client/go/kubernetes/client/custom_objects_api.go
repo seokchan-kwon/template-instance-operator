@@ -153,8 +153,6 @@ func (a *CustomObjectsApiService) CreateNamespacedCustomObject(ctx context.Conte
 	localVarPath = strings.Replace(localVarPath, "{"+"namespace"+"}", fmt.Sprintf("%v", namespace), -1)
 	localVarPath = strings.Replace(localVarPath, "{"+"plural"+"}", fmt.Sprintf("%v", plural), -1)
 
-	fmt.Println("***************** path : " + localVarPath)
-
 	localVarHeaderParams := make(map[string]string)
 	localVarQueryParams := url.Values{}
 	localVarFormParams := url.Values{}
