@@ -1,4 +1,4 @@
-module template-instance-operator
+module github.com/seokchan-kwon/template-instance-operator
 
 go 1.13
 
